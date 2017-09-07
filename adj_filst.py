@@ -20,7 +20,6 @@ def adjfilst(cps):
     cps['z1'] = cps.apply(lambda row: np.random.uniform(0, 1)
                           if row['case1'] == 1 else 1
                           if row['case2'] else 0, axis=1)
-    print cps['z1']
     # np.random.seed(5410)
     cps['z2'] = cps.apply(lambda row: np.random.uniform(0, 1)
                           if row['case2'] == 1 else 1

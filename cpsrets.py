@@ -206,12 +206,19 @@ class Returns():
         record['was'] = record['wsal_val']
         record['wasp'] = record['was']
         record['intst'] = record['int_val']
+        record['intstp'] = record['intst']
         record['dbe'] = record['div_val']
+        record['dbep'] = record['dbe']
         record['alimony'] = record['alm_val']
+        record['alimonyp'] = record['alimony']
         record['bil'] = record['semp_val']
+        record['bilp'] = record['bil']
         record['pensions'] = record['rtm_val']
+        record['pensionsp'] = record['pensions']
         record['rents'] = record['rnt_val']
+        record['rentsp'] = record['rents']
         record['fil'] = record['frse_val']
+        record['filp'] = record['fil']
         record['ucomp'] = record['uc_val']
         record['socsec'] = record['ss_val_x']
 
@@ -280,6 +287,13 @@ class Returns():
         record['depne'] = 0
         record['ages'] = np.nan  # age of spouse
         record['wass'] = 0.  # spouse's wage
+        record['intsts'] = 0.  # spouse's interest income
+        record['dbes'] = 0.  # spouse's dividend income
+        record['alimonys'] = 0.  # spouse's alimony
+        record['bils'] = 0.  # spouse's business income
+        record['pensionss'] = 0.  # spouse's pension
+        record['rentss'] = 0.  # spouse's rental income
+        record['fils'] = 0.  # spouse's farm income
 
         # Single and separated individuals
         if record['ms_type'] == 1:
@@ -311,12 +325,19 @@ class Returns():
                 record['wass'] = spouse['wsal_val']
                 record['was'] += record['wass']
                 record['intst'] += spouse['int_val']
+                record['intsts'] = spouse['int_val']
                 record['dbe'] += spouse['div_val']
+                record['dbes'] = spouse['div_val']
                 record['alimony'] += spouse['alm_val']
+                record['alimonys'] = spouse['alm_val']
                 record['bil'] += spouse['semp_val']
+                record['bils'] = spouse['semp_val']
                 record['pensions'] += spouse['rtm_val']
+                record['pensionss'] = spouse['rtm_val']
                 record['rents'] += spouse['rnt_val']
+                record['rentss'] = spouse['rnt_val']
                 record['fil'] += spouse['frse_val']
+                record['fils'] = spouse['frse_val']
                 record['ucomp'] += spouse['uc_val']
                 record['socsec'] += spouse['ss_val_y']
                 # Tax unit spouse flag
@@ -899,8 +920,8 @@ class Returns():
         if record['ifdept']:
             return 1
         # Random selection
-        fils = (record['js'] == 3 and record['agede'] > 0 and income < 6500 and
-                record['depne'] < 0)
+        fils = (record['js'] == 3 and record['agede'] > 0 and
+                income < 6500 and record['depne'] < 0)
         if fils:
             return 1
         # Negative income test
@@ -965,7 +986,10 @@ class Returns():
                          'zowner', 'zwaspt', 'zwassp', 'wasp', 'wass', 'nu18',
                          'n1821', 'n21', 'SSI', 'SS', 'SNAP', 'VB', 'MCARE',
                          'MCAID', 'xstate', 'xregion', 'xschf', 'xschb',
-                         'xsche', 'xschc', 'xhid', 'xfid', 'xpid']
+                         'xsche', 'xschc', 'xhid', 'xfid', 'xpid',
+                         'intstp', 'intsts', 'dbep', 'dbes', 'alimonyp',
+                         'alimonys', 'pensionsp', 'pensionss', 'rentsp',
+                         'rentss', 'filp', 'fils', 'bilp', 'bils']
         for i in range(1, 16):
             repeated_vars.append('SSI_PROB{}'.format(str(i)))
             repeated_vars.append('SSI_VAL{}'.format(str(i)))

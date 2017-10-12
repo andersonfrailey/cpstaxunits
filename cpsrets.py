@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-class Returns():
+class Returns(object):
     """
     Class used to create tax units
     """
@@ -54,7 +54,7 @@ class Returns():
         self.cps['flag'] = False  # General flag
 
     @staticmethod
-    def check_age(record,  age, dependent=False):
+    def check_age(record, age, dependent=False):
         """
         Check the age of an individual and adjust age variable accordingly
 

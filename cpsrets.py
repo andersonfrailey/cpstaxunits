@@ -989,7 +989,8 @@ class Returns(object):
                          'xsche', 'xschc', 'xhid', 'xfid', 'xpid',
                          'intstp', 'intsts', 'dbep', 'dbes', 'alimonyp',
                          'alimonys', 'pensionsp', 'pensionss', 'rentsp',
-                         'rentss', 'filp', 'fils', 'bilp', 'bils']
+                         'rentss', 'filp', 'fils', 'bilp', 'bils', 'hi',
+                         'paid', 'priv']
         for i in range(1, 16):
             repeated_vars.append('SSI_PROB{}'.format(str(i)))
             repeated_vars.append('SSI_VAL{}'.format(str(i)))
@@ -1062,4 +1063,9 @@ class Returns(object):
         record['zdepin'] = zdepin
         record['income'] = self.totincx(unit)
         record['filst'] = self.filst(unit)
+
+        # add spouse records used in blank slate imputations
+        record['hi_spouse'] = unit['266']
+        record['paid_spouse'] = unit['268']
+        record['priv_spouse'] = unit['269']
         return record

@@ -93,7 +93,6 @@ def tobit(cps, betas, sigma, prob_mult):
     val: an array of values for the imputed variable
     """
 
-
     def impute_val(df, xb, sigma):
         """
         Computational portion of the imputation

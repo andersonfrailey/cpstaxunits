@@ -77,7 +77,44 @@ def impute_dpad(cps):
     return val
 
 
-def imputation(cps, logit_betas, ols_betas):
+def tobit(cps, betas, sigma, prob_mult):
+    """
+    Impute values using a tobit model
+
+    Parameters
+    ----------
+    cps: DataFrame with all CPS records
+    betas: beta coefficients from the tobit regression
+    sigma: value used in tobit calculations
+    prob_mult: multiplier for probability values
+
+    Returns
+    -------
+    val: an array of values for the imputed variable
+    """
+
+
+    def impute_val(df, xb, sigma):
+        """
+        Computational portion of the imputation
+        """
+        lamb = norm.pdf(xb / sigma) / norm.cdf(xb / sigma)
+        z2 = np.random.randn()
+        charitable = xb + sigma * lamb
+        return charitable
+    # list of parameters used in the imputation
+    params = ['constant', 'lnincome', 'mars_reg', 'famsize', 'agede']
+    xb = np.zeros(len(cps))
+    for param in params:
+        xb += cps[param] * betas[param]
+    #
+    prob = norm.cdf(xb / sigma) * prob_mult
+    z1 = np.random.uniform(0, 1, len(prob))
+    val = np.where(z1 <= prob, impute_val(cps, xb, sigma), 0.)
+    return val
+
+
+def imputation(cps, logit_betas, ols_betas, tobit_betas):
     """
     This function uses betas calculated using the 2011 IRS Public Use File to
     impute the value of certain itemized deductions for filing records
@@ -87,6 +124,7 @@ def imputation(cps, logit_betas, ols_betas):
     cps: CPS data to impute on
     logit_betas: beta coefficients for logit model
     ols_betas: beta coefficients for ols model
+    tobit_betas: beta coefficients for tobit models
     """
     # data prep
     # find log of total income
@@ -133,18 +171,19 @@ def imputation(cps, logit_betas, ols_betas):
     # student loan interest deduction
     cps['SLINT'] = impute(cps, logit_betas['sl_logit'], ols_betas['sl_ols'],
                           0., 1., 1.1)
-    # charitable deduction - may swap for a tobit model
-    cps['CHARITABLE'] = impute(cps, logit_betas['char_logit'],
-                               ols_betas['char_ols'], 0., 1., 1.)
-    # miscellaneous deductions
-    cps['MISCITEM'] = impute(cps, logit_betas['misc_logit'],
-                             ols_betas['misc_ols'], 0., 1., 1.)
+
     # child care expenses
     cps['CCE'] = impute(cps, logit_betas['cdc_logit'], ols_betas['cdc_ols'],
                         0., 1., 1.)
     # medical expense deduction
     cps['MEDICALEXP'] = impute(cps, logit_betas['medex_logit'],
                                ols_betas['medex_ols'], 0., 1., 1.)
+
+    # charitable deduction
+    cps['CHARITABLE'] = tobit(cps, tobit_betas['charitable'], 48765.45, 1.)
+
+    # miscellaneous deductions
+    cps['MISCITEM'] = tobit(cps, tobit_betas['misc'], 14393.99, 0.3)
 
     # additional imputations
     cps['homeowner'] = np.where((cps['zowner'] == 1) & (cps['ifdept'] != 1),

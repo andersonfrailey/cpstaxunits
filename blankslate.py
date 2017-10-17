@@ -165,33 +165,33 @@ def blankslate(cps):
 
     # create DataFrame with all of the imputation parameters
     param_index = ['constant', 'lnincome', 'married', 'ageh', 'agesqr']
-    logit_params = pd.DataFrame({'cv_li': [-4.939295, 0.341101, 0.210042,
-                                           0.043812, -0.000110],
-                                 'db_plans': [-5.523435, 0.455226, 0.306575,
-                                              0.052442, -0.000023],
-                                 'dc_plans': [-7.628465, 1.178294, -0.036142,
-                                              0.135468, -0.001710]},
-                                index=param_index)
+    logit_coefs = pd.DataFrame({'cv_li': [-4.939295, 0.341101, 0.210042,
+                                          0.043812, -0.000110],
+                                'db_plans': [-5.523435, 0.455226, 0.306575,
+                                             0.052442, -0.000023],
+                                'dc_plans': [-7.628465, 1.178294, -0.036142,
+                                             0.135468, -0.001710]},
+                               index=param_index)
 
-    ols_params = pd.DataFrame({'cv_li': [2.93293, 0.745429, 0.057145, 0.073103,
-                                         -0.000425],
-                               'db_plans': [-1.182855, 0.176279, 0.027678,
-                                            0.032099, -0.000296],
-                               'dc_plans': [-5.382661, 1.267289, -0.129236,
-                                            0.115907, -0.000721]},
-                              index=param_index)
+    ols_coefs = pd.DataFrame({'cv_li': [2.93293, 0.745429, 0.057145, 0.073103,
+                                        -0.000425],
+                              'db_plans': [-1.182855, 0.176279, 0.027678,
+                                           0.032099, -0.000296],
+                              'dc_plans': [-5.382661, 1.267289, -0.129236,
+                                           0.115907, -0.000721]},
+                             index=param_index)
 
     # cash value life insurance
-    cps['buildup_life'] = impute(cps, logit_params['cv_li'],
-                                 ols_params['cv_li'],
+    cps['buildup_life'] = impute(cps, logit_coefs['cv_li'],
+                                 ols_coefs['cv_li'],
                                  1., 0.04)
     # DB plans
-    cps['buildup_pens_db'] = impute(cps, logit_params['db_plans'],
-                                    ols_params['db_plans'],
+    cps['buildup_pens_db'] = impute(cps, logit_coefs['db_plans'],
+                                    ols_coefs['db_plans'],
                                     1000., 0.04)
     # DC plans
-    cps['buildup_pens_dc'] = impute(cps, logit_params['dc_plans'],
-                                    ols_params['dc_plans'],
+    cps['buildup_pens_dc'] = impute(cps, logit_coefs['dc_plans'],
+                                    ols_coefs['dc_plans'],
                                     1000., 0.04)
     # home sales
     limit = np.where(cps.js == 2, 500000., 250000.)
@@ -232,29 +232,29 @@ def blankslate(cps):
     probd = np.array([agedict[x] for x in cps['ageh']])
     z1 = np.random.uniform(0, 1, len(probd))
 
-    networth_params = pd.DataFrame({'net_worth': [-3.940298, 1.387882,
-                                                  0.164254, 0.0450189,
-                                                  0.000056]},
-                                   index=param_index)
+    networth_coefs = pd.DataFrame({'net_worth': [-3.940298, 1.387882,
+                                                 0.164254, 0.0450189,
+                                                 0.000056]},
+                                  index=param_index)
 
     params_textint = ['constant', 'lnincome', 'married', 'agede', 'lnintst']
-    textint_params = pd.DataFrame({'textint1': [-7.206106, 0.539793, -0.442224,
-                                                0.463489, 0.4170335],
-                                   'textint2': [4.02137, 0.226618, -0.525778,
-                                                0.713761, -0.295498]},
-                                  index=params_textint)
+    textint_coefs = pd.DataFrame({'textint1': [-7.206106, 0.539793, -0.442224,
+                                               0.463489, 0.4170335],
+                                  'textint2': [4.02137, 0.226618, -0.525778,
+                                               0.713761, -0.295498]},
+                                 index=params_textint)
     net_worth_mask = z1 >= probd
     net_worth = np.where(net_worth_mask, model(cps, param_index,
-                                               networth_params['net_worth']),
+                                               networth_coefs['net_worth']),
                          0.)
     cps['stepupinbasis'] = np.where(net_worth_mask,
                                     np.exp(net_worth) * 1000. * 0.5, 0.)
-    xb_textint = model(cps, params_textint, textint_params['textint1'])
+    xb_textint = model(cps, params_textint, textint_coefs['textint1'])
     prob_textint = np.exp(xb_textint) / (1. + np.exp(xb_textint))
     z1 = np.random.uniform(0, 1, len(prob_textint))
     textint_mask = z1 <= prob_textint
     textint = np.where(textint_mask,
-                       model(cps, params_textint, textint_params['textint2']),
+                       model(cps, params_textint, textint_coefs['textint2']),
                        0.)
     cps['textint'] = np.where(textint_mask, np.exp(textint) * 1000., 0.)
 

@@ -4,6 +4,7 @@ of the CPS file creation
 """
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 
 def impute(df, logit_betas, ols_betas, l_adj, o_adj, prob_mult):
@@ -92,7 +93,6 @@ def tobit(cps, betas, sigma, prob_mult):
     -------
     val: an array of values for the imputed variable
     """
-
 
     def impute_val(df, xb, sigma):
         """

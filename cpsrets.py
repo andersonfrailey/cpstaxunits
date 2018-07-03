@@ -1,5 +1,5 @@
 """
-Create tax units using the 2013 and 2014 CPS
+Create tax units using the 2013, 2014, and 2015 CPS
 """
 import pandas as pd
 import numpy as np
@@ -68,16 +68,20 @@ class Returns(object):
         -------
         None
         """
-        if age < 18:
+        if 0 < age < 18:
             record['nu18'] += 1
             if dependent:
+                record['EIC'] += 1
                 record['nu18_dep'] += 1
                 if age <= 5:
                     record['nu05'] += 1
                 elif age <= 13:
                     record['nu13'] += 1
-        elif 18 <= age < 21:
-            record['n1821'] += 1
+                    record['f2441'] += 1
+                if 0 < age <= 17:
+                    record['n24'] += 1
+        elif 18 <= age <= 20:
+            record['n1820'] += 1
         elif age >= 21:
             record['n21'] += 1
             if age >= 65 and dependent:
@@ -114,16 +118,25 @@ class Returns(object):
         -------
         None
         """
-        ben_list = [('ssi', 'SSI', 'ssi_impute'),
-                    ('snap', 'SNAP', 'snap_impute'),
-                    ('ss', 'SS', 'ss_val_y'),
-                    ('vb', 'VB', 'vb_impute'),
-                    ('mcare', 'MCARE', 'MedicareX'),
-                    ('mcaid', 'MCAID', 'MedicaidX')]
-        for a, b, c in ben_list:
-            record[b] += person[c]
-            record['{}_PROB{}'.format(b, pos)] = person['{}_probs'.format(a)]
-            record['{}_VAL{}'.format(b, pos)] = person[c]
+        # tuple format:
+        # a - name used in the actual record
+        # b - imputed value name in the raw CPS
+        # c - imputed probability in the raw CPS
+        # d - capitalized name used in the extrapolation routine
+        ben_list = [('ssi', 'ssi_impute', 'ssi_probs', 'SSI'),
+                    ('vb', 'vb_impute', 'vb_probs', 'VB'),
+                    ('snap', 'snap_impute', 'snap_probs', 'SNAP'),
+                    ('mcare', 'MedicareX', 'mcare_probs', 'MCARE'),
+                    ('mcaid', 'MedicaidX', 'mcaid_probs', 'MCAID'),
+                    ('ss', 'ss_val_y', 'ss_probs', 'SS'),
+                    ('tanf', 'tanf_impute', 'tanf_probs', 'TANF'),
+                    ('ui', 'ui_impute', 'ui_probs', 'UI'),
+                    ('housing', 'housing_impute', 'housing_probs', 'HOUSING'),
+                    ('wic', 'wic_impute', 'wic_probs', 'WIC')]
+        for a, b, c, d in ben_list:
+            record[a] += person[b]
+            record['{}_PROB{}'.format(d, pos)] = person[c]
+            record['{}_VAL{}'.format(d, pos)] = person[b]
 
     def computation(self):
         """
@@ -131,9 +144,11 @@ class Returns(object):
         """
         # IN 2015 alimony was moved to other Income
         if self.year == 2015:
+            # TODO: double check code below
             self.cps['alm_val'] = np.where(self.cps['oi_off'] == 20,
                                            self.cps['oi_val'], 0.)
-        for num in tqdm(self.h_nums):
+        # for num in tqdm(self.h_nums):
+        for num in self.h_nums:
             self.nunits = 0
             # Clear house_units list
             del self.house_units[:]
@@ -181,8 +196,8 @@ class Returns(object):
                 self.tax_units.append(self.output(unit, house_dict))
         final_output = pd.DataFrame(self.tax_units)
         # final_output.to_csv('cpsrets2013.csv', index=False)
-        print 'There are {} tax units in the {} file'.format(len(final_output),
-                                                             self.year)
+        print('There are {} tax units in the {} file'.format(len(final_output),
+                                                             self.year))
         return final_output
 
     def create(self, record, house):
@@ -197,12 +212,14 @@ class Returns(object):
         -------
         A completed tax unit
         """
+        record['year'] = self.year - 1
         # Set head of hosuehold as record
         self.nunits += 1
         # Flag head of hosuehold
         record['flag'] = True
 
         # Income items
+        record['agi_head'] = record['agi']
         record['was'] = record['wsal_val']
         record['wasp'] = record['was']
         record['intst'] = record['int_val']
@@ -220,7 +237,7 @@ class Returns(object):
         record['fil'] = record['frse_val']
         record['filp'] = record['fil']
         record['ucomp'] = record['uc_val']
-        record['socsec'] = record['ss_val_x']
+        record['socsec'] = record['ss_val']
 
         # Weights and flags
         record['wt'] = record['fsup_wgt']
@@ -242,7 +259,7 @@ class Returns(object):
         record['zoldes'] = 0
         record['zyoung'] = 0
         record['zworkc'] = record['wc_val']
-        record['zsocse'] = record['ss_val_x']
+        record['zsocse'] = record['ss_val']
         record['zssinc'] = record['ssi_val']
         record['zpubas'] = record['paw_val']
         record['zvetbe'] = record['vet_val']
@@ -267,7 +284,7 @@ class Returns(object):
         if ms == 1 or ms == 2 or ms == 3:
             record['ms_type'] = 2
 
-        record['sp_ptr'] = record['a_spouse']  # pointer to spouse's record
+        record['sp_ptr'] = int(record['a_spouse'])  # pointer to spouse record
         record['relcode'] = record['a_exprrp']
         record['ftype'] = record['ftype']
         record['ageh'] = record['a_age']
@@ -280,12 +297,16 @@ class Returns(object):
         record['nu13'] = 0  # only checked for dependents
         record['nu18_dep'] = 0
         record['nu18'] = 0
-        record['n1821'] = 0
+        record['n1820'] = 0
         record['n21'] = 0
         record['elderly_dependent'] = 0
+        record['f2441'] = 0
+        record['EIC'] = 0
+        record['n24'] = 0
         self.check_age(record, record['a_age'])
         record['depne'] = 0
         record['ages'] = np.nan  # age of spouse
+        record['agi_spouse'] = 0.  # spouse's agi
         record['wass'] = 0.  # spouse's wage
         record['intsts'] = 0.  # spouse's interest income
         record['dbes'] = 0.  # spouse's dividend income
@@ -321,7 +342,9 @@ class Returns(object):
                 if record['ages'] >= 65:
                     record['agede'] += 1
                 self.check_age(record, spouse['a_age'])
-                # Income variable
+                # Income variables
+                record['agi_spouse'] = spouse['agi']
+                record['agi'] += spouse['agi']
                 record['wass'] = spouse['wsal_val']
                 record['was'] += record['wass']
                 record['intst'] += spouse['int_val']
@@ -346,7 +369,7 @@ class Returns(object):
                 # CPS evaluation criteria
                 record['zagesp'] = spouse['a_age']
                 record['zworkc'] += spouse['wc_val']
-                record['zsocse'] += spouse['ss_val_x']
+                record['zsocse'] += spouse['ss_val']
                 record['zssinc'] += spouse['ssi_val']
                 record['zpubas'] += spouse['paw_val']
                 record['zvetbe'] += spouse['vet_val']
@@ -411,7 +434,7 @@ class Returns(object):
         record['125'] = record['vet_val']  # veteran's benefits
         record['126'] = 0  # child support
         record['127'] = record['dsab_val']  # disability income
-        record['128'] = record['ss_val_x']  # social security income
+        record['128'] = record['ss_val']  # social security income
         record['129'] = record['zowner']
         record['130'] = 0  # wage share
         if record['sp_ptr'] != 0:
@@ -421,7 +444,7 @@ class Returns(object):
             record['125'] += spouse['vet_val']
             record['126'] = 0
             record['127'] += spouse['dsab_val']
-            record['128'] += spouse['ss_val_x']
+            record['128'] += spouse['ss_val']
             totalwas = record['was']
             # Find total wage share
             if totalwas > 0:
@@ -546,7 +569,7 @@ class Returns(object):
         record['248'] = record['paid']
         record['249'] = record['priv']
         record['250'] = record['prityp']
-        record['251'] = record['ss_val_x']
+        record['251'] = record['ss_val']
         record['252'] = record['uc_val']
         record['253'] = record['mcare']
         record['254'] = record['wc_val']
@@ -588,7 +611,7 @@ class Returns(object):
             record['268'] = spouse['paid']
             record['269'] = spouse['priv']
             record['270'] = spouse['prityp']
-            record['271'] = spouse['ss_val_x']
+            record['271'] = spouse['ss_val']
             record['272'] = spouse['uc_val']
             record['273'] = spouse['mcare']
             record['274'] = spouse['wc_val']
@@ -602,13 +625,17 @@ class Returns(object):
                     ('ss', 'SS', 'ss_val_y'),
                     ('vb', 'VB', 'vb_impute'),
                     ('mcare', 'MCARE', 'MedicareX'),
-                    ('mcaid', 'MCAID', 'MedicaidX')]
+                    ('mcaid', 'MCAID', 'MedicaidX'),
+                    ('tanf', 'TANF', 'tanf_impute'),
+                    ('ui', 'UI', 'ui_impute'),
+                    ('housing', 'HOUSING', 'housing_impute'),
+                    ('wic', 'WIC', 'wic_impute')]
         for a, b, c in ben_list:
-            record[b] = record[c]
+            record[a] = record[c]
             record['{}_PROB1'.format(b)] = record['{}_probs'.format(a)]
             record['{}_VAL1'.format(b)] = record[c]
             if record['sp_ptr'] != 0:
-                record[b] += record[c]
+                record[a] += record[c]
                 record['{}_PROB2'.format(b)] = spouse['{}_probs'.format(a)]
                 record['{}_VAL2'.format(b)] = spouse[c]
             else:
@@ -675,7 +702,7 @@ class Returns(object):
         """
         wages = record['wsal_val']
         income = (wages + record['semp_val'] + record['frse_val'] +
-                  record['uc_val'] + record['ss_val_x'] + record['rtm_val'] +
+                  record['uc_val'] + record['ss_val'] + record['rtm_val'] +
                   record['int_val'] + record['div_val'] + record['rnt_val'] +
                   record['alm_val'])
         # determine if dependent exceeds filing thresholds
@@ -737,10 +764,43 @@ class Returns(object):
         self.house_units[iy]['nu13'] += self.house_units[ix]['nu13']
         self.house_units[iy]['nu18_dep'] += self.house_units[ix]['nu18_dep']
         self.house_units[iy]['nu18'] += self.house_units[ix]['nu18']
-        self.house_units[iy]['n1821'] += self.house_units[ix]['n1821']
+        self.house_units[iy]['n1820'] += self.house_units[ix]['n1820']
         self.house_units[iy]['n21'] += self.house_units[ix]['n21']
         elderly = self.house_units[ix]['elderly_dependent']
         self.house_units[iy]['elderly_dependent'] += elderly
+        self.house_units[iy]['n24'] += self.house_units[ix]['n24']
+        self.house_units[iy]['EIC'] += self.house_units[ix]['EIC']
+        self.house_units[iy]['f2441'] += self.house_units[ix]['f2441']
+        # TODO: add dependent info
+        # transfer benefit totals
+        self.house_units[iy]['ssi'] += self.house_units[ix]['ssi']
+        self.house_units[iy]['vb'] += self.house_units[ix]['vb']
+        self.house_units[iy]['snap'] += self.house_units[ix]['snap']
+        self.house_units[iy]['mcare'] += self.house_units[ix]['mcare']
+        self.house_units[iy]['mcaid'] += self.house_units[ix]['mcaid']
+        self.house_units[iy]['ss'] += self.house_units[ix]['ss']
+        self.house_units[iy]['tanf'] += self.house_units[ix]['tanf']
+        self.house_units[iy]['ui'] += self.house_units[ix]['ui']
+        self.house_units[iy]['housing'] += self.house_units[ix]['housing']
+        self.house_units[iy]['wic'] += self.house_units[ix]['wic']
+
+        # transfer benefit probabilities and values
+        ben_list = ['SSI', 'SNAP', 'VB', 'MCARE', 'MCAID', 'SS', 'TANF',
+                    'UI', 'HOUSING', 'WIC']
+        for i in range(1, self.house_units[ix]['ben_number']):
+            for ben in ben_list:
+                # current position in the benefits probability/value count
+                pos = self.house_units[iy]['ben_number']
+                prob_str1 = '{}_PROB{}'.format(ben, pos)
+                prob_str2 = '{}_PROB{}'.format(ben, i)
+                new_prob = self.house_units[ix][prob_str2]
+                self.house_units[iy][prob_str1] = new_prob
+                val_str1 = '{}_VAL{}'.format(ben, pos)
+                val_str2 = '{}_VAL{}'.format(ben, i)
+                new_val = self.house_units[ix][val_str2]
+                self.house_units[iy][val_str1] = new_val
+            # increment benefit position
+            self.house_units[iy]['ben_number'] += 1
 
     @staticmethod
     def relation(person, record):
@@ -857,6 +917,7 @@ class Returns(object):
         # Add benefit variables to record
         self.add_benefit(person, record, record['ben_number'])
         record['ben_number'] += 1
+        # TODO: check all changes made since last update
 
     def filst(self, record):
         """
@@ -977,6 +1038,7 @@ class Returns(object):
         record = {}
         depne = unit['depne']
         # Many variables keep the same name in the final file
+        # TODO: add new benefits, check all benefit names
         repeated_vars = ['js', 'ifdept', 'agede', 'depne', 'ageh',
                          'ages', 'was', 'intst', 'dbe', 'alimony', 'bil',
                          'pensions', 'rents', 'fil', 'ucomp', 'socsec',
@@ -984,13 +1046,18 @@ class Returns(object):
                          'zagesp', 'zoldes', 'zyoung', 'zworkc', 'zsocse',
                          'zssinc', 'zpubas', 'zvetbe', 'zchsup', 'zdepin',
                          'zowner', 'zwaspt', 'zwassp', 'wasp', 'wass', 'nu18',
-                         'n1821', 'n21', 'SSI', 'SS', 'SNAP', 'VB', 'MCARE',
-                         'MCAID', 'xstate', 'xregion', 'xschf', 'xschb',
+                         'n1820', 'n21', 'ssi', 'ss', 'snap', 'vb', 'mcare',
+                         'mcaid', 'tanf', 'housing', 'wic', 'ui', 'xstate',
+                         'xregion', 'xschf', 'xschb',
                          'xsche', 'xschc', 'xhid', 'xfid', 'xpid',
                          'intstp', 'intsts', 'dbep', 'dbes', 'alimonyp',
                          'alimonys', 'pensionsp', 'pensionss', 'rentsp',
                          'rentss', 'filp', 'fils', 'bilp', 'bils', 'hi',
-                         'paid', 'priv']
+                         'paid', 'priv', 'xhid', 'xpid', 'xfid', 'xstate',
+                         'a_lineno', 'n24', 'nu18', 'n1820', 'n21', 'nu05',
+                         'nu13', 'f2441', 'elderly_dependent', 'nu18_dep',
+                         'EIC', 'agi', 'agi_head', 'agi_spouse', 'blind_head',
+                         'blind_spouse', 'year']
         for i in range(1, 16):
             repeated_vars.append('SSI_PROB{}'.format(str(i)))
             repeated_vars.append('SSI_VAL{}'.format(str(i)))
@@ -1004,6 +1071,14 @@ class Returns(object):
             repeated_vars.append('MCAID_VAL{}'.format(str(i)))
             repeated_vars.append('VB_PROB{}'.format(str(i)))
             repeated_vars.append('VB_VAL{}'.format(str(i)))
+            repeated_vars.append('TANF_PROB{}'.format(str(i)))
+            repeated_vars.append('TANF_VAL{}'.format(str(i)))
+            repeated_vars.append('HOUSING_PROB{}'.format(str(i)))
+            repeated_vars.append('HOUSING_VAL{}'.format(str(i)))
+            repeated_vars.append('UI_PROB{}'.format(str(i)))
+            repeated_vars.append('UI_VAL{}'.format(str(i)))
+            repeated_vars.append('WIC_PROB{}'.format(str(i)))
+            repeated_vars.append('WIC_VAL{}'.format(str(i)))
         for var in repeated_vars:
             record[var] = unit[var]
 
@@ -1011,6 +1086,20 @@ class Returns(object):
         if unit['js'] == 2:
             txpye = 2
         record['xxtot'] = txpye + depne
+        # ensure XTOT will equal the number of people in a tax unit
+        nsums = record['nu18'] + record['n1820'] + record['n21']
+        eflag = False
+        if record['xxtot'] != nsums or record['n24'] > record['nu18']:
+            eflag = True
+            record['xxtot'] = 1
+            record['nu18'] = 0
+            record['n1820'] = 0
+            record['n21'] = 0
+            record['n24'] = 0
+            self.check_age(record, record['ageh'])
+            if record['js'] == 2:
+                record['xxtot'] += 1
+                self.check_age(record, record['ages'])
 
         # Check relationship codes among dependents
         xxoodep = 0
@@ -1022,6 +1111,10 @@ class Returns(object):
                 dindex = unit['dep' + str(i)]
                 drel = house[dindex]['a_exprrp']
                 dage = house[dindex]['a_age']
+                # if the xtot error was detected, check the ages again
+                if eflag:
+                    record['xxtot'] += 1
+                    self.check_age(record, dage, dependent=True)
                 if drel == 8:
                     xxopar += 1
                 if drel >= 9 and dage >= 18:
@@ -1046,6 +1139,7 @@ class Returns(object):
 
         # Dependent income
         zdepin = 0.
+        # TODO: add benefit and age check
         if depne > 0:
             for i in range(1, depne + 1):
                 dindex = unit['dep' + str(i)]
@@ -1054,7 +1148,7 @@ class Returns(object):
                               house[dindex]['semp_val'] +
                               house[dindex]['frse_val'] +
                               house[dindex]['uc_val'] +
-                              house[dindex]['ss_val_x'] +
+                              house[dindex]['ss_val'] +
                               house[dindex]['semp_val'] +
                               house[dindex]['rtm_val'] +
                               house[dindex]['int_val'] +

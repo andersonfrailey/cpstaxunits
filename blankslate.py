@@ -262,7 +262,7 @@ def blankslate(cps):
     cps['eshi_taxpayer'] = cps.apply(health_insurance, axis=1)
     cps['eshi_spouse'] = cps.apply(health_insurance, axis=1, args=(False))
 
-    # rent
+    # rent paid
     cps['rent_paid'] = np.where(cps['zowner'] != 1,
                                 0.15 * np.maximum(0., (cps['was'] +
                                                        cps['intst'] +

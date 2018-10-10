@@ -192,7 +192,7 @@ def createcps():
 
     # export and compress data
     print('Exporting and Compressing Data')
-    cps_final.to_csv('../cps_raw_new.csv.gz', index=False, compression='gzip')
+    cps_final.to_csv('cps_raw_new.csv.gz', index=False, compression='gzip')
 
 
 if __name__ == '__main__':
